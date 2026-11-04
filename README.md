@@ -125,8 +125,8 @@ The mobile view converts the sidebar to a drawer, stacks filters for touch use, 
 
 Deploy the frontend and backend as separate Node.js services. Configure `API_SERVER_URL` on the frontend and set `MONGODB_URI`, `MONGODB_DB_NAME`, `FRONTEND_ORIGIN`, `JWT_SECRET`, `COOKIE_SECURE=true`, and the administrator seed variables on the backend. Rotate all development credentials before deployment.
 
-- Live project: _To be added_
-- Frontend repository: _To be added_
-- Backend repository: _To be added_
+- Live project: [Doctor Tracker](https://doctor-tracker-assessment-frontend.vercel.app/)
+- Frontend repository: [doctor-tracker-assessment-frontend](https://github.com/morsalin101/doctor-tracker-assessment-frontend)
+- Backend repository: [doctor-tracker-assessment-backend](https://github.com/morsalin101/doctor-tracker-assessment-backend)
 
 > Doctor Tracker is an assessment-grade administrative tracker, not a certified electronic medical-record or regulatory-compliance platform.
