@@ -1,0 +1,21 @@
+'use client';
+
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import { api, ApiError } from '@/lib/api';
+import type { Doctor, Patient } from '@/lib/types';
+
+const schema = z.object({ fullName: z.string().min(2, 'Enter the patient’s name.'), dateOfBirth: z.string().min(1, 'Select a date of birth.'), gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']), phone: z.string().min(6, 'Enter a valid phone number.'), email: z.union([z.literal(''), z.string().email('Enter a valid email.')]), address: z.string(), condition: z.string().min(2, 'Enter a condition.'), doctorId: z.string().min(1, 'Select a doctor.') });
+type Values = z.infer<typeof schema>;
+
+export function PatientForm({ doctorId, doctors = [], patient, onDone }: { doctorId?: string; doctors?: Doctor[]; patient?: Patient; onDone: () => void }) {
+  const client = useQueryClient();
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: patient ? { ...patient, dateOfBirth: patient.dateOfBirth.slice(0, 10), doctorId: patient.doctorId._id, email: patient.email ?? '', address: patient.address ?? '' } : { gender: 'female', doctorId: doctorId ?? '', email: '', address: '' } });
+  const mutation = useMutation({ mutationFn: (values: Values) => patient ? api(`/patients/${patient._id}`, { method: 'PATCH', body: JSON.stringify(values) }) : api(`/doctors/${doctorId ?? values.doctorId}/patients`, { method: 'POST', body: JSON.stringify(values) }), onSuccess: async () => { await Promise.all([client.invalidateQueries({ queryKey: ['patients'] }), client.invalidateQueries({ queryKey: ['dashboard'] }), client.invalidateQueries({ queryKey: ['doctor'] })]); toast.success(patient ? 'Patient updated' : 'Patient added'); onDone(); }, onError: (error: ApiError) => { if (error.fields) Object.entries(error.fields).forEach(([key, value]) => setError(key as keyof Values, { message: value[0] })); else toast.error(error.message); } });
+  return <form onSubmit={handleSubmit((v) => mutation.mutate(v))}><div className="grid gap-4 sm:grid-cols-2"><Field label="Full name" error={errors.fullName?.message}><input className="input" {...register('fullName')} placeholder="Patient name" /></Field><Field label="Date of birth" error={errors.dateOfBirth?.message}><input className="input" type="date" max={new Date().toISOString().slice(0, 10)} {...register('dateOfBirth')} /></Field><Field label="Gender" error={errors.gender?.message}><select className="input" {...register('gender')}><option value="female">Female</option><option value="male">Male</option><option value="other">Other</option><option value="prefer_not_to_say">Prefer not to say</option></select></Field><Field label="Phone" error={errors.phone?.message}><input className="input" {...register('phone')} placeholder="+880 1800 000000" /></Field><Field label="Email (optional)" error={errors.email?.message}><input className="input" type="email" {...register('email')} placeholder="patient@example.com" /></Field><Field label="Condition" error={errors.condition?.message}><input className="input" {...register('condition')} placeholder="Hypertension" /></Field>{!doctorId && <Field label="Assigned doctor" error={errors.doctorId?.message}><select className="input" {...register('doctorId')}><option value="">Select doctor</option>{doctors.map((doctor) => <option key={doctor._id} value={doctor._id}>{doctor.name}</option>)}</select></Field>}<div className={!doctorId ? '' : 'sm:col-span-2'}><Field label="Address (optional)" error={errors.address?.message}><input className="input" {...register('address')} placeholder="Patient address" /></Field></div></div><div className="mt-6 flex justify-end gap-3"><button type="button" className="btn btn-secondary" onClick={onDone}>Cancel</button><button className="btn btn-primary" disabled={mutation.isPending}>{mutation.isPending ? 'Saving…' : patient ? 'Save changes' : 'Add patient'}</button></div></form>;
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) { return <div><label className="label">{label}</label>{children}{error && <p className="field-error">{error}</p>}</div>; }
