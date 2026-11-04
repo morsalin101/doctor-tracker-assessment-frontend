@@ -109,17 +109,17 @@ References keep doctor documents small and allow patient queries to use focused 
 
 ## Visual Evidence
 
-### Desktop dashboard
+### Login landing page
 
-The desktop layout presents navigation, key metrics, date filtering, charts, provider distribution, and recent patient activity in one responsive workspace.
+The secure login experience introduces the product with the updated Doctor Tracker identity and medical-care hero artwork.
+
+![Doctor Tracker login landing page](./docs/screenshots/login-desktop.png)
+
+### Authenticated dashboard
+
+After authentication, the dashboard presents navigation, key metrics, date filtering, charts, provider distribution, and recent patient activity in one responsive workspace.
 
 ![Doctor Tracker desktop dashboard](./docs/screenshots/dashboard-desktop.png)
-
-### Mobile patient directory
-
-The mobile view converts the sidebar to a drawer, stacks filters for touch use, and changes patient rows into readable cards without removing management actions.
-
-<img src="./docs/screenshots/patients-mobile.png" alt="Doctor Tracker mobile patient directory" width="390" />
 
 ## Deployment
 
