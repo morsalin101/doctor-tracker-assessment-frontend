@@ -1,73 +1,132 @@
 # Doctor Tracker
 
-Doctor Tracker is a focused administrative portal for securely maintaining doctors, their patient assignments, and operational health insights. It combines searchable directories, efficient record workflows, and responsive analytics in a professional clinical interface.
+## Description
 
-## Setup guide
+Doctor Tracker is a secure, responsive administration portal that gives healthcare teams one focused workspace for managing doctors, maintaining doctor–patient relationships, searching and filtering clinical directories, and reviewing operational trends through meaningful dashboard analytics. The product pairs a professional Next.js interface with a separate Express and MongoDB API, providing fast paginated workflows, protected access, and a clean experience across desktop and mobile devices.
+
+## Setup Guide
 
 ### Prerequisites
 
 - Node.js 24 LTS
-- pnpm 10+
-- The separate Doctor Tracker Express API running locally
+- pnpm 10 or newer
+- MongoDB 7 or a MongoDB Atlas deployment
+- The separate `doctor-tracker-backend-assesment` repository
 
-### Installation
+### 1. Configure and start the backend
 
-1. In the backend repository, copy `.env.example` to `.env`, configure MongoDB, run `pnpm install`, `pnpm seed`, and `pnpm dev`.
-2. In this repository, copy `.env.example` to `.env.local`.
-3. Install dependencies with `pnpm install`.
-4. Start the frontend with `pnpm dev`.
-5. Open `http://localhost:3000` and sign in using the admin credentials configured in the backend.
+```bash
+cd doctor-tracker-backend-assesment
+pnpm install
+cp .env.example .env
+```
 
-`API_SERVER_URL` defaults to `http://localhost:5001`. The Next.js server transparently rewrites `/api/*` requests to the standalone Express service, keeping browser sessions same-origin.
+Edit the backend `.env`, then initialize and run the API:
 
-## Scripts
+```bash
+pnpm seed
+pnpm dev
+```
+
+The API runs at `http://localhost:5001` by default. The seed command is idempotent: it upserts the configured administrator and demonstration records without deleting unrelated data.
+
+### 2. Configure and start the frontend
+
+```bash
+cd doctor-tracker-assesment-frontend
+pnpm install
+cp .env.example .env.local
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) and sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` configured in the backend.
+
+### Environment variables
+
+The committed [`.env.example`](./.env.example) is safe to copy:
+
+```dotenv
+API_SERVER_URL=http://localhost:5001
+```
+
+`API_SERVER_URL` is read by the Next.js server. Browser requests use the same-origin `/api/*` path, which Next.js proxies to Express so the authentication cookie is never exposed to client-side JavaScript.
+
+### Available scripts
 
 | Command | Purpose |
 | --- | --- |
 | `pnpm dev` | Start the Next.js development server |
-| `pnpm build` | Build the production application |
-| `pnpm lint` | Run Next.js ESLint rules |
-| `pnpm typecheck` | Validate TypeScript |
-| `pnpm test` | Run component tests |
-| `pnpm test:e2e` | Run Playwright desktop and mobile tests |
+| `pnpm build` | Create an optimized production build |
+| `pnpm start` | Serve the production build |
+| `pnpm lint` | Run ESLint |
+| `pnpm typecheck` | Validate TypeScript without emitting files |
+| `pnpm test` | Run Vitest component tests |
+| `pnpm test:e2e` | Run Playwright desktop and mobile workflows |
 
-## System architecture
+## System Architecture
 
 ```text
-Browser
-  └─ Next.js App Router UI
-       ├─ TanStack Query cache
-       ├─ Protected route layout
-       └─ Same-origin /api rewrite
-              └─ Express REST API
-                   ├─ JWT cookie authorization
-                   ├─ Zod validation
-                   └─ Mongoose → MongoDB (doctor_tracking)
+┌─────────────────────────────────────────────────────────────────┐
+│ Browser                                                         │
+│ Next.js App Router UI · TanStack Query · URL-based list state   │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ same-origin /api/* requests
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Next.js server                                                  │
+│ Route protection · API proxy · server-side session validation   │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ REST + HTTP-only JWT cookie
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Express API                                                     │
+│ Helmet · rate limiting · Zod validation · authentication        │
+│ REST controllers · centralized errors · production-safe logs    │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │ indexed Mongoose queries
+                               ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ MongoDB: doctor_tracking                                       │
+│ Admins · Doctors · Patients · aggregation-based analytics       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-## Technical decisions
+The browser never connects to MongoDB or Express directly. Next.js renders the interface and forwards API traffic to the standalone backend. Express remains the authorization boundary, validates every protected request, performs indexed database queries, and returns consistent JSON responses. TanStack Query caches those responses and invalidates only the affected records after a mutation.
 
-### TanStack Query and URL state over Redux
+## Technical Decisions
 
-The portal’s shared state is predominantly remote server data. TanStack Query provides caching, request deduplication, invalidation after mutations, and clear loading/error states without introducing a global reducer layer. Search filters and pagination live in URL parameters so views are refresh-safe and shareable.
+### 1. TanStack Query and URL state instead of Redux
 
-### Referenced patient documents over embedded arrays
+Most shared state in Doctor Tracker is server-owned data: doctor lists, patient lists, filter options, and dashboard aggregates. TanStack Query is designed for this lifecycle and supplies request deduplication, caching, background refresh, mutation state, and targeted invalidation without a reducer/action layer. A successful patient edit, for example, invalidates the patient list and relevant dashboard queries while leaving unrelated UI state untouched.
 
-Patients are stored in their own collection with an indexed doctor reference. This supports global patient pagination and filtering, avoids unbounded doctor documents, and enables efficient aggregate analytics without loading entire patient lists into application memory.
+Search terms, filters, page number, and page size are stored in URL search parameters rather than a global store. This makes every directory view refresh-safe, bookmarkable, and compatible with browser navigation. Local component state is reserved for temporary concerns such as dialog visibility and form input. Redux would add synchronization code and another source of truth without solving a state problem this application has.
 
-## Visual evidence
+### 2. Referenced patient documents instead of embedded patient arrays
 
-Desktop and mobile captures are generated from the seeded local application:
+Patients are stored as independent MongoDB documents with an indexed `doctor` reference. Embedding every patient inside a doctor document would make global patient search, patient-level updates, and condition/date filtering increasingly expensive as those arrays grow. It could also push popular doctor records toward MongoDB's document-size limit and cause unrelated patient edits to contend on the same parent document.
 
-- `docs/screenshots/dashboard-desktop.png`
-- `docs/screenshots/patients-mobile.png`
+References keep doctor documents small and allow patient queries to use focused compound indexes such as doctor/date and condition/date. They also make pagination predictable and allow dashboard pipelines to group, count, and join only the fields they need. The trade-off is that doctor details occasionally require a join or second query, which is handled with bounded projections and MongoDB aggregation rather than loading full collections into application memory.
+
+## Visual Evidence
+
+### Desktop dashboard
+
+The desktop layout presents navigation, key metrics, date filtering, charts, provider distribution, and recent patient activity in one responsive workspace.
+
+![Doctor Tracker desktop dashboard](./docs/screenshots/dashboard-desktop.png)
+
+### Mobile patient directory
+
+The mobile view converts the sidebar to a drawer, stacks filters for touch use, and changes patient rows into readable cards without removing management actions.
+
+<img src="./docs/screenshots/patients-mobile.png" alt="Doctor Tracker mobile patient directory" width="390" />
 
 ## Deployment
 
-Deploy the frontend and backend as separate Node.js services. Set `API_SERVER_URL` on the frontend and configure the backend’s `FRONTEND_ORIGIN`, secure cookie setting, MongoDB URI, JWT secret, and admin seed variables. Replace the repository and live project links below after deployment.
+Deploy the frontend and backend as separate Node.js services. Configure `API_SERVER_URL` on the frontend and set `MONGODB_URI`, `MONGODB_DB_NAME`, `FRONTEND_ORIGIN`, `JWT_SECRET`, `COOKIE_SECURE=true`, and the administrator seed variables on the backend. Rotate all development credentials before deployment.
 
 - Live project: _To be added_
 - Frontend repository: _To be added_
 - Backend repository: _To be added_
 
-This assessment project is an administrative tracker, not a certified electronic medical-record or regulatory-compliance platform.
+> Doctor Tracker is an assessment-grade administrative tracker, not a certified electronic medical-record or regulatory-compliance platform.
