@@ -41,6 +41,17 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000) and sign in with the `ADMIN_EMAIL` and `ADMIN_PASSWORD` configured in the backend.
 
+## Demo Credentials
+
+Reviewers can access the [live Doctor Tracker application](https://doctor-tracker-assessment-frontend.vercel.app/) with the following assessment account:
+
+```text
+Email: admin@doctortracker.local
+Password: DoctorTracker!2026#Admin
+```
+
+> These credentials are intentionally public for project evaluation only. Rotate or remove this account after the assessment.
+
 ### Environment variables
 
 The committed [`.env.example`](./.env.example) is safe to copy:
